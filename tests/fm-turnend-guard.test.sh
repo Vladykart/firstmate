@@ -184,6 +184,8 @@ install_guard_scripts() {
   cp "$ROOT/bin/fm-supervision-lib.sh" "$dir/bin/fm-supervision-lib.sh"
   cp "$ROOT/bin/fm-wake-lib.sh" "$dir/bin/fm-wake-lib.sh"
   cp "$ROOT/bin/fm-hook-host-lib.sh" "$dir/bin/fm-hook-host-lib.sh"
+  cp "$ROOT/bin/fm-session-lock-lib.sh" "$dir/bin/fm-session-lock-lib.sh"
+  cp "$ROOT/bin/fm-cursor-lib.sh" "$dir/bin/fm-cursor-lib.sh"
   mkdir -p "$dir/docs"
   cp -R "$ROOT/docs/supervision-protocols" "$dir/docs/supervision-protocols"
   chmod +x "$dir/bin/fm-turnend-guard.sh" "$dir/bin/fm-turnend-guard-grok.sh" "$dir/bin/fm-operational-input.sh" "$dir/bin/fm-supervision-instructions.sh" "$dir/bin/fm-harness.sh"
@@ -1830,6 +1832,136 @@ test_hook_claude_mode_budget_without_verified_failure_keeps_blocking() {
   pass "fm-turnend-guard --claude: budget exhaustion alone cannot permit a blind stop"
 }
 
+# --- lock-refused (read-only) sessions ---------------------------------------
+# A session whose home lock is held by a DIFFERENT live harness may not repair
+# supervision, and the Stop-owned auto-arm is inert in it, so the auto-arm epoch
+# is frozen by construction. Neither the epoch-keyed block budget nor the
+# attended fail-open can then be reached, and the guard used to re-block every
+# turn end forever (upstream issue #3425).
+
+FAKEBIN=$(fm_fakebin "$TMP_ROOT/fakebin")
+ln -s /bin/bash "$FAKEBIN/claude"
+FAKE_CLAUDE="$FAKEBIN/claude"
+
+# Hold the fixture's session lock with a LIVE process that looks like a harness
+# but is not an ancestor of the guard. The trailing no-op keeps bash from
+# exec-ing the sleep into a non-harness process. Sets LOCK_HOLDER_PID.
+LOCK_HOLDER_PID=
+hold_foreign_session_lock() {
+  local dir=$1
+  "$FAKE_CLAUDE" -c 'sleep 60; :' &
+  LOCK_HOLDER_PID=$!
+  printf '%s\n' "$LOCK_HOLDER_PID" > "$dir/state/.lock"
+}
+
+release_foreign_session_lock() {
+  [ -n "$LOCK_HOLDER_PID" ] || return 0
+  kill "$LOCK_HOLDER_PID" 2>/dev/null || true
+  wait "$LOCK_HOLDER_PID" 2>/dev/null || true
+  LOCK_HOLDER_PID=
+}
+
+# The frozen ledger a lock-refused session sees: some earlier owning session's
+# last terminal outcome, which nothing in this session can ever advance.
+seed_frozen_autoarm_ledger() {
+  local dir=$1
+  printf 'epoch=807 owner_pid=24665 outcome=rewake updated_at=1\n' > "$dir/state/.claude-autoarm-epoch"
+  touch -t 202001010000 "$dir/state/.claude-autoarm-epoch"
+}
+
+test_hook_claude_mode_lock_refused_advisories_are_bounded() {
+  local dir out status i blocks=0 advisories=2
+  dir=$(make_primary_dir "$TMP_ROOT/hook-claude-lock-refused")
+  : > "$dir/state/task1.meta"
+  seed_frozen_autoarm_ledger "$dir"
+  hold_foreign_session_lock "$dir"
+  for i in 1 2 3 4 5 6 7 8 9 10 11 12; do
+    out=$(FM_CLAUDE_AUTOARM_SYNC_WAIT_MS=100 run_hook_claude "$dir" true); status=$?
+    if [ "$status" -eq 2 ]; then
+      blocks=$((blocks + 1))
+      assert_contains "$out" "NOT THIS SESSION'S TO REPAIR" "lock-refused advisory $i lost its read-only heading"
+      assert_contains "$out" "$LOCK_HOLDER_PID" "lock-refused advisory $i did not name the live lock holder"
+      assert_contains "$out" "this session is read-only" "lock-refused advisory $i did not state the read-only posture"
+      assert_not_contains "$out" 'TURN WOULD END BLIND' "lock-refused advisory $i demanded a repair this session may not perform"
+    else
+      expect_code 0 "$status" "a stood-down lock-refused turn end must be allowed silently"
+      [ -z "$out" ] || fail "stood-down lock-refused turn end $i still produced output: $out"
+    fi
+  done
+  release_foreign_session_lock
+  [ "$blocks" -eq "$advisories" ] \
+    || fail "expected exactly $advisories read-only advisories over 12 turn ends, got $blocks"
+  assert_absent "$dir/state/.claude-autoarm-failure-alarmed" "the read-only path consumed the attended alarm"
+  pass "fm-turnend-guard --claude: a lock-refused session gets bounded read-only advisories, then stands down (issue #3425)"
+}
+
+test_hook_claude_mode_lock_refused_bound_is_configurable() {
+  local dir status i blocks=0
+  dir=$(make_primary_dir "$TMP_ROOT/hook-claude-lock-refused-n")
+  : > "$dir/state/task1.meta"
+  seed_frozen_autoarm_ledger "$dir"
+  hold_foreign_session_lock "$dir"
+  for i in 1 2 3 4 5; do
+    FM_CLAUDE_TURNEND_READONLY_ADVISORIES=1 FM_CLAUDE_AUTOARM_SYNC_WAIT_MS=100 \
+      run_hook_claude "$dir" true >/dev/null; status=$?
+    [ "$status" -eq 2 ] && blocks=$((blocks + 1))
+  done
+  release_foreign_session_lock
+  [ "$blocks" -eq 1 ] || fail "FM_CLAUDE_TURNEND_READONLY_ADVISORIES=1 produced $blocks advisories"
+  pass "fm-turnend-guard --claude: the read-only advisory bound honours FM_CLAUDE_TURNEND_READONLY_ADVISORIES"
+}
+
+# The safety negative: a session that DOES own the lock can repair supervision,
+# so it must keep blocking. The read-only stand-down must never let a repairable
+# session end blind.
+test_hook_claude_mode_lock_owning_session_still_blocks() {
+  local dir out status i blocks=0 home
+  dir=$(make_primary_dir "$TMP_ROOT/hook-claude-lock-owned")
+  home=$(cd "$dir" && pwd)
+  : > "$dir/state/task1.meta"
+  seed_frozen_autoarm_ledger "$dir"
+  ln -s /bin/bash "$dir/fake-claude"
+  for i in 1 2 3 4 5 6; do
+    # shellcheck disable=SC2016 # FM_HOME expands inside the fake harness child.
+    out=$(printf '{"stop_hook_active":true,"session_id":"sess-owned"}' \
+      | CLAUDECODE=1 FM_HOME="$home" FM_CLAUDE_AUTOARM_SYNC_WAIT_MS=100 "$dir/fake-claude" -c '
+          printf "%s\n" "$$" > "$FM_HOME/state/.lock"
+          "$FM_HOME/bin/fm-turnend-guard.sh" --claude
+        ' 2>&1); status=$?
+    [ "$status" -eq 2 ] && blocks=$((blocks + 1))
+  done
+  [ "$blocks" -eq 6 ] || fail "a lock-OWNING session stopped blocking after $blocks of 6 blind turn ends"
+  assert_contains "$out" 'TURN WOULD END BLIND' "a lock-owning session lost the repair banner"
+  pass "fm-turnend-guard --claude: a session that owns the home lock still blocks every blind turn end"
+}
+
+# A dead recorded owner is not a lock-refused session: this session may reclaim
+# that lock and repair supervision, so it keeps the ordinary repair path.
+test_hook_claude_mode_dead_lock_owner_is_not_read_only() {
+  local dir out status
+  dir=$(make_primary_dir "$TMP_ROOT/hook-claude-dead-lock")
+  : > "$dir/state/task1.meta"
+  seed_frozen_autoarm_ledger "$dir"
+  nonexistent_pid > "$dir/state/.lock"
+  out=$(FM_CLAUDE_AUTOARM_SYNC_WAIT_MS=100 run_hook_claude "$dir" true); status=$?
+  expect_code 2 "$status" "a dead lock owner must not take the read-only stand-down path"
+  assert_contains "$out" 'TURN WOULD END BLIND' "a dead lock owner lost the repair banner"
+  pass "fm-turnend-guard --claude: a dead recorded lock owner keeps the ordinary repair path"
+}
+
+test_hook_non_claude_lock_refused_banner_does_not_demand_repair() {
+  local dir out status
+  dir=$(make_primary_dir "$TMP_ROOT/hook-noncl-lock-refused")
+  : > "$dir/state/task1.meta"
+  hold_foreign_session_lock "$dir"
+  out=$(run_hook "$dir" false); status=$?
+  release_foreign_session_lock
+  expect_code 2 "$status" "a lock-refused non-Claude turn end must still surface the gap"
+  assert_contains "$out" "NOT THIS SESSION'S TO REPAIR" "non-Claude lock-refused banner lost its read-only heading"
+  assert_not_contains "$out" 'TURN WOULD END BLIND' "non-Claude lock-refused banner demanded a forbidden repair"
+  pass "fm-turnend-guard: a lock-refused session never gets the repair banner in any mode"
+}
+
 test_hook_claude_mode_verified_failure_alarm_is_loud_and_once() {
   local dir out out2 status status2
   dir=$(make_primary_dir "$TMP_ROOT/hook-claude-verified-alarm")
@@ -2263,6 +2395,11 @@ test_hook_claude_mode_recovery_contention_is_not_ordinary_allow
 test_hook_claude_mode_concurrent_recovery_resets_are_idempotent
 test_hook_claude_mode_stale_rewake_epoch_blocks
 test_hook_claude_mode_budget_without_verified_failure_keeps_blocking
+test_hook_claude_mode_lock_refused_advisories_are_bounded
+test_hook_claude_mode_lock_refused_bound_is_configurable
+test_hook_claude_mode_lock_owning_session_still_blocks
+test_hook_claude_mode_dead_lock_owner_is_not_read_only
+test_hook_non_claude_lock_refused_banner_does_not_demand_repair
 test_hook_claude_mode_verified_failure_alarm_is_loud_and_once
 test_hook_claude_mode_fail_open_requires_notice_and_failure_epoch
 test_hook_claude_mode_away_mode_never_uses_stop_autoarm_fail_open
