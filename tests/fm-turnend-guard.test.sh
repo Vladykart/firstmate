@@ -1864,8 +1864,8 @@ release_foreign_session_lock() {
 # The frozen ledger a lock-refused session sees: some earlier owning session's
 # last terminal outcome, which nothing in this session can ever advance.
 seed_frozen_autoarm_ledger() {
-  local dir=$1
-  printf 'epoch=807 owner_pid=24665 outcome=rewake updated_at=1\n' > "$dir/state/.claude-autoarm-epoch"
+  local dir=$1 outcome=${2:-rewake}
+  printf 'epoch=807 owner_pid=24665 outcome=%s updated_at=1\n' "$outcome" > "$dir/state/.claude-autoarm-epoch"
   touch -t 202001010000 "$dir/state/.claude-autoarm-epoch"
 }
 
@@ -1893,6 +1893,23 @@ test_hook_claude_mode_lock_refused_advisories_are_bounded() {
     || fail "expected exactly $advisories read-only advisories over 12 turn ends, got $blocks"
   assert_absent "$dir/state/.claude-autoarm-failure-alarmed" "the read-only path consumed the attended alarm"
   pass "fm-turnend-guard --claude: a lock-refused session gets bounded read-only advisories, then stands down (issue #3425)"
+}
+
+test_hook_claude_mode_lock_refused_advisories_bounded_with_stale_failure_episode() {
+  local dir out status i blocks=0 advisories=2
+  dir=$(make_primary_dir "$TMP_ROOT/hook-claude-lock-refused-stale-failure")
+  : > "$dir/state/task1.meta"
+  seed_frozen_autoarm_ledger "$dir" failed-suppressed
+  : > "$dir/state/.claude-autoarm-failure-notified"
+  hold_foreign_session_lock "$dir"
+  for i in 1 2 3 4 5 6 7 8; do
+    out=$(FM_CLAUDE_AUTOARM_SYNC_WAIT_MS=100 run_hook_claude "$dir" true); status=$?
+    [ "$status" -eq 2 ] && blocks=$((blocks + 1))
+  done
+  release_foreign_session_lock
+  [ "$blocks" -eq "$advisories" ] \
+    || fail "expected exactly $advisories read-only advisories with a stale failed-suppressed episode, got $blocks"
+  pass "fm-turnend-guard --claude: a stale failed-suppressed episode does not inflate the lock-refused advisory bound"
 }
 
 test_hook_claude_mode_lock_refused_bound_is_configurable() {
@@ -2396,6 +2413,7 @@ test_hook_claude_mode_concurrent_recovery_resets_are_idempotent
 test_hook_claude_mode_stale_rewake_epoch_blocks
 test_hook_claude_mode_budget_without_verified_failure_keeps_blocking
 test_hook_claude_mode_lock_refused_advisories_are_bounded
+test_hook_claude_mode_lock_refused_advisories_bounded_with_stale_failure_episode
 test_hook_claude_mode_lock_refused_bound_is_configurable
 test_hook_claude_mode_lock_owning_session_still_blocks
 test_hook_claude_mode_dead_lock_owner_is_not_read_only

@@ -369,17 +369,21 @@ budget_account_current_epoch() {  # [observe|block]
   fi
   if [ ! -f "$BUDGET_FILE" ] || [ "${old_session:-}" != "$SESSION_ID" ]; then
     charged=1
-    case "$outcome" in
-      failed|failed-suppressed)
-        if [ -e "$FAILURE_NOTICE" ]; then
-          initialized=1
-          COUNT=0
-        else
-          COUNT=1
-        fi
-        ;;
-      *) COUNT=1 ;;
-    esac
+    if [ "$mode" = observe ]; then
+      case "$outcome" in
+        failed|failed-suppressed)
+          if [ -e "$FAILURE_NOTICE" ]; then
+            initialized=1
+            COUNT=0
+          else
+            COUNT=1
+          fi
+          ;;
+        *) COUNT=1 ;;
+      esac
+    else
+      COUNT=1
+    fi
   fi
   tmp="$BUDGET_FILE.tmp.$$"
   if ! printf 'session=%s\ncount=%s\nepoch=%s\n' "$SESSION_ID" "$COUNT" "$current_epoch" > "$tmp" 2>/dev/null \
