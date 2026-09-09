@@ -115,7 +115,9 @@ Each epoch identity is charged at most once per Stop under the budget lock, and 
 That second rule is what bounds an inert auto-arm: a hook kept silent by a session lock held by a live harness outside its ancestry, a hook that never fires, or a hook failing before its generation claim leaves the ledger frozen at its last outcome.
 Charging only epoch changes let the count freeze with that ledger, so the guard re-blocked without limit and the attended fail-open was never reachable; `budget_account_current_epoch` in `bin/fm-turnend-guard.sh` owns the rule.
 Whenever both coordination locks are needed, positive auto-arm recovery and the terminal check acquire the auto-arm owner lock before the budget lock.
-After that alarm, the Stop auto-arm suppresses further exit-2 continuations until positive watcher recovery, so the final fail-open remains reachable.
+After that alarm, the Stop auto-arm suppresses further exit-2 continuations from non-actionable closes until positive recovery, so the final fail-open remains reachable.
+An actionable close is itself positive recovery, because the arm started a watcher, that watcher ran a full cycle, and it delivered a real supervision wake, so it is translated and ends the failure episode ahead of that suppression.
+Deciding it after the suppression instead is what let one stale alarm swallow every later wake: an actionable close breaks the arm's retry loop before the live-watcher recheck, so a home whose closes stay actionable never reaches the branch that would clear the episode.
 The alarm cannot repeat during that failure episode, and a later unhealthy stop blocks again.
 A positively verified healthy watcher clears the failure notice, alarm, and block budget for a future independent episode.
 A Claude failure notice describes the automatic mechanism as broken and does not direct a routine manual background arm.
