@@ -196,6 +196,7 @@ echo "$$" >> "$FM_HOME/state/arm-ran"
 if ! (set -C; : > "$FM_HOME/state/watcher-live") 2>/dev/null; then
   : > "$FM_HOME/state/watcher-overlap"
 fi
+printf 'pending:downtime:fixture-generation\n' > "$FM_HOME/state/.watcher-down"
 touch "$FM_HOME/state/.last-watcher-beat"
 date +%s >> "$FM_HOME/state/watcher-beats"
 printf 'watcher: started pid=%s (beacon fresh)\n' "$$"
