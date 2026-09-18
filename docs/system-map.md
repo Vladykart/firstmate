@@ -53,6 +53,7 @@ Loaded only on their declared trigger, each listed with its trigger condition.
 - `afk` - `/afk`, going afk, `state/.afk`, or an away-mode injection marker.
 - `ahoy` - `/ahoy`.
 - `bearings` - `/bearings` or a status request.
+- `quiet` - `/quiet`, a quiet-mode request, or `state/.afk` already in quiet mode.
 - `stow` - `/stow`.
 - `updatefirstmate` - `/updatefirstmate`.
 
