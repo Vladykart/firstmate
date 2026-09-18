@@ -17,7 +17,7 @@ Their load state is reported by `bin/fm-session-start.sh`; the turn-end guard wr
 | `fm-primary-turnend-guard.ts` | Blocks a blind turn-end while work is under way | `docs/turnend-guard.md` |
 | `fm-calm.ts` | Calm presentation toggle and animated working boat | `docs/calm.md` |
 
-Shared modules under `.pi/extensions/lib/` are imported by those extensions and carry no load surface of their own:
+Shared modules under `.pi/extensions/lib/` are imported or spawned by those extensions and carry no load surface of their own:
 
 - `fm-branch-dispatch.ts` - wake handshake between watcher and supervision branch.
 - `fm-operational-input.ts` - operational-input classification shared with `bin/fm-operational-input.sh`.
@@ -26,6 +26,7 @@ Shared modules under `.pi/extensions/lib/` are imported by those extensions and 
 - `fm-branch-model-picker.ts` - ordering and filtering for the supervision-branch model picker.
 - `fm-calm-visibility.ts`, `fm-calm-working-ship.ts`, `fm-calm-assistant-layout.ts`, `fm-calm-operational-user-layout.ts` - Calm presentation adapters.
 - `fm-calm-preservation.ts`, `fm-calm-working-ship-sprite.ts` - Calm policy and sprite geometry shared with the Claude Code Calm mod, reached through tracked symlinks.
+- `fm-sessionstart-supervisor.mjs` - spawned by the turn-end guard to run the sessionstart hook under supervision on non-Windows platforms.
 
 ## Skill layer
 
