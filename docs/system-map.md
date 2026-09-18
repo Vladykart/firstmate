@@ -76,7 +76,7 @@ A skill's procedure calls `bin/` scripts and points at `docs/` owners without ow
 ### Extension to script and state
 
 Each extension delegates real side effects to `bin/` scripts and reads or writes `state/` files, never inverting that ownership.
-The watcher extension runs `bin/fm-watch-arm.sh`; the branch extension reports through `bin/fm-branch-outcome.sh`; the turn-end guard classifies through `bin/fm-operational-input.sh`.
+The watcher extension runs `bin/fm-watch-arm.sh`; the branch extension reports through `bin/fm-branch-outcome.sh`; the turn-end guard runs `bin/fm-turnend-guard.sh`.
 
 ### Prose classification
 
