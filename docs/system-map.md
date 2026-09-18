@@ -21,7 +21,11 @@ Shared modules under `.pi/extensions/lib/` are imported by those extensions and 
 
 - `fm-branch-dispatch.ts` - wake handshake between watcher and supervision branch.
 - `fm-operational-input.ts` - operational-input classification shared with `bin/fm-operational-input.sh`.
+- `fm-native-contract.ts` - registers a FirstMate tool onto the native Pi event-bus boundary.
+- `fm-async-exec.ts` - off-thread replacement for `spawnSync` so a child process cannot freeze the TUI.
+- `fm-branch-model-picker.ts` - ordering and filtering for the supervision-branch model picker.
 - `fm-calm-visibility.ts`, `fm-calm-working-ship.ts`, `fm-calm-assistant-layout.ts`, `fm-calm-operational-user-layout.ts` - Calm presentation adapters.
+- `fm-calm-preservation.ts`, `fm-calm-working-ship-sprite.ts` - Calm policy and sprite geometry shared with the Claude Code Calm mod, reached through tracked symlinks.
 
 ## Skill layer
 
