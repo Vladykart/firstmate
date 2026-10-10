@@ -1,0 +1,9 @@
+RUN_STARTED_UTC=2026-10-10T21:05:49Z
+BUSY_SNAPSHOT_BEFORE=busy fm-spawn launch-brief 1 1791666349 g1791666349.3496203.6499
+BOUND_PAUSE=paused [busy-gen=g1791666349.3496203.6499] [busy-seq=1]: deliberately parked on external review
+BOUND_PAUSE_VALID=yes
+BOUND_PAUSE_WATCHER_OUTPUT=<quiet; long-cadence marker present=yes>
+BUSY_SNAPSHOT_AFTER=idle claude-hook stop 2 1791666352 g1791666349.3496203.6499
+STALE_PAUSE_VALID=no
+STALE_PAUSE_WATCHER_OUTPUT=sess:fm-live-worker (idle 250s, possible wedge, escalation 3)
+RUN_FINISHED_UTC=2026-10-10T21:05:53Z
