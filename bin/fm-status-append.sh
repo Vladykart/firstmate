@@ -20,11 +20,13 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$SCRIPT_DIR/fm-classify-lib.sh"
 
 if status_is_paused "$LINE"; then
+  harness=$(sed -n 's/^harness=//p' "$STATE/$ID.meta" 2>/dev/null | tail -1)
   snapshot=$(fm_busy_record_read "$STATE" "$ID" snapshot 2>/dev/null || true)
-  read -r busy_state _ _ busy_seq _ busy_gen <<EOF
+  read -r busy_state busy_source _ busy_seq _ busy_gen <<EOF
 $snapshot
 EOF
-  if [ "$busy_state" = busy ] && fm_busy_token_valid "$busy_gen"; then
+  if [ "$busy_state" = busy ] && [ -n "$harness" ] &&
+     fm_busy_source_trusted "$harness" "$busy_source" && fm_busy_token_valid "$busy_gen"; then
     case "$busy_seq" in
       ''|*[!0-9]*) ;;
       *)

@@ -67,6 +67,7 @@ EOF
 test_status_append_binds_only_busy_pauses() {
   local state gen line
   state=$(new_state_dir status-append)
+  printf 'harness=claude\n' > "$state/t1.meta"
   gen=$("$EV" arm "$state" t1)
 
   "$ROOT/bin/fm-status-append.sh" "$state" t1 'paused: waiting for review'
@@ -86,7 +87,15 @@ test_status_append_binds_only_busy_pauses() {
   line=$(tail -1 "$state/t1.status")
   [ "$line" = 'progress: ordinary status' ] \
     || fail "a non-pause status was modified: '$line'"
-  pass "status append binds only pauses from an unchanged busy lifecycle snapshot"
+
+  state=$(new_state_dir status-append-untrusted)
+  printf 'harness=cursor\n' > "$state/t1.meta"
+  "$EV" arm "$state" t1 >/dev/null
+  "$ROOT/bin/fm-status-append.sh" "$state" t1 'paused: untrusted lifecycle source'
+  line=$(tail -1 "$state/t1.status")
+  [ "$line" = 'paused: untrusted lifecycle source' ] \
+    || fail "an untrusted busy source was presented as a bound pause: '$line'"
+  pass "status append binds pauses only to unchanged, trusted busy lifecycle snapshots"
 }
 
 test_apply_current_gen_reset() {
