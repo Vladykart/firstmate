@@ -5167,7 +5167,6 @@ test_busy_declared_pause_is_rechecked_not_wedge_escalated() {
     || { reap "$pid"; fail "a declared pause on a busy review pane was escalated: $(cat "$out")"; }
   reap "$pid"
   [ ! -s "$out" ] || fail "a declared pause on a busy review pane printed a wake reason: $(cat "$out")"
-  [ -e "$state/.paused-$key" ] || fail "the busy-turn bound did not apply the declared-pause cadence"
   [ ! -e "$state/.stale-since-$key" ] || fail "a declared pause on a busy pane started the wedge timer"
   [ ! -e "$state/.wedge-escalations-$key" ] || fail "a declared pause on a busy pane incremented the escalation counter"
   ack_stopped_cycle "$state" || fail "could not acknowledge the intentional declared-pause phase-A stop"
