@@ -1,0 +1,8 @@
+Scenario 1: exact current-generation binding vs untrusted/unbound pause
+ok - only an exactly bound trusted busy generation uses long-cadence tracking
+
+Scenario 2: older and same-second unbound pauses must not mask a wedge
+ok - old or unordered pauses cannot mask a newer busy generation
+
+Scenario 3: established external-wait recheck behavior remains bounded
+ok - a busy pane under a declared pause is rechecked on the long cadence, and lifting the pause restores the wedge escalation
