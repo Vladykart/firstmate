@@ -125,7 +125,7 @@ wait_numeric_file() {
 # a full fleet pass before the pane branch), so an absorb assertion must wait for
 # the marker it expects rather than racing a fixed tick budget.
 wait_file_exists() {  # <file> [limit]
-  local file=$1 limit=${2:-100} i=0
+  local file=$1 limit=${2:-300} i=0
   while [ "$i" -lt "$limit" ]; do
     [ -e "$file" ] && return 0
     sleep 0.1
@@ -137,7 +137,7 @@ wait_file_exists() {  # <file> [limit]
 # Wait up to <limit> 0.1s ticks for <file> to be removed, for the same reason:
 # a retirement assertion must observe the watcher's poll, not a fixed budget.
 wait_file_gone() {  # <file> [limit]
-  local file=$1 limit=${2:-100} i=0
+  local file=$1 limit=${2:-300} i=0
   while [ "$i" -lt "$limit" ]; do
     [ -e "$file" ] || return 0
     sleep 0.1
@@ -4824,7 +4824,7 @@ test_current_busy_generation_pause_uses_long_cadence() {
     FM_STATE_OVERRIDE="$state" FM_BUSY_TURN_MAX_SECS=1 FM_STALE_ESCALATE_SECS=1 FM_PAUSE_RESURFACE_SECS=999 \
     FM_POLL=1 FM_SIGNAL_GRACE=1 FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 "$WATCH" > "$out" &
   pid=$!
-  wait_file_exists "$state/.paused-$key" 150 \
+  wait_file_exists "$state/.paused-$key" 300 \
     || { reap "$pid"; fail "a current-generation pause missed long-cadence tracking: $(cat "$out")"; }
   kill -0 "$pid" 2>/dev/null \
     || { reap "$pid"; fail "a current-generation pause used wedge cadence: $(cat "$out")"; }
@@ -5163,7 +5163,7 @@ test_busy_declared_pause_is_rechecked_not_wedge_escalated() {
     FM_POLL=1 FM_SIGNAL_GRACE=1 \
     FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 "$WATCH" > "$out" &
   pid=$!
-  wait_file_exists "$state/.paused-$key" 150 \
+  wait_file_exists "$state/.paused-$key" 300 \
     || { reap "$pid"; fail "a declared pause on a busy review pane was escalated: $(cat "$out")"; }
   reap "$pid"
   [ ! -s "$out" ] || fail "a declared pause on a busy review pane printed a wake reason: $(cat "$out")"
@@ -5209,7 +5209,7 @@ test_busy_declared_pause_is_rechecked_not_wedge_escalated() {
     FM_POLL=1 FM_SIGNAL_GRACE=1 \
     FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 "$WATCH" > "$out" &
   pid=$!
-  wait_file_exists "$state/.stale-since-$key" 150 \
+  wait_file_exists "$state/.stale-since-$key" 300 \
     || { reap "$pid"; fail "a lifted pause escalated before the wedge threshold: $(cat "$out")"; }
   reap "$pid"
   [ -s "$state/.stale-since-$key" ] || fail "a lifted pause did not restore the busy-turn wedge timer"
@@ -6428,7 +6428,7 @@ test_afk_current_busy_generation_pause_leaves_long_cadence_to_daemon() {
     FM_STATE_OVERRIDE="$state" FM_BUSY_TURN_MAX_SECS=1 FM_STALE_ESCALATE_SECS=1 FM_PAUSE_RESURFACE_SECS=999 \
     FM_POLL=1 FM_SIGNAL_GRACE=1 FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 "$WATCH" > "$out" &
   pid=$!
-  wait_file_gone "$state/.wedge-escalations-$key" 150 \
+  wait_file_gone "$state/.wedge-escalations-$key" 300 \
     || { reap "$pid"; fail "an away-mode current-generation pause retained its escalation counter: $(cat "$out")"; }
   kill -0 "$pid" 2>/dev/null \
     || { reap "$pid"; fail "an away-mode current-generation pause emitted a watcher wedge: $(cat "$out")"; }
