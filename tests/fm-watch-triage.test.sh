@@ -4833,7 +4833,7 @@ test_current_busy_generation_pause_uses_long_cadence() {
 
   dir=$(make_case busy-untrusted-pause); state="$dir/state"; fakebin="$dir/fakebin"
   out="$dir/watch.out"; capture_file="$dir/pane.txt"; window="test:fm-busy-untrusted-pause"
-  projects="$dir/projects"; workspace="$dir/worktree"; project="$projects/opaque"; conv="conv-current"
+  projects="$dir/projects"; workspace="$dir/worktree"; project="$projects/opaque"; conv="conv current"
   mkdir -p "$project/agent-transcripts/$conv" "$workspace"
   printf '{"workspacePath":"%s"}\n' "$workspace" > "$project/.workspace-trusted"
   printf '{"role":"user"}\n' > "$project/agent-transcripts/$conv/$conv.jsonl"
