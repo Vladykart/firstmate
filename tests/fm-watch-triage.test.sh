@@ -120,6 +120,15 @@ wait_numeric_file() {
   return 1
 }
 
+watcher_is_running() {  # <pid>
+  local state
+  state=$(ps -o state= -p "$1" 2>/dev/null | tr -d '[:space:]')
+  case "$state" in
+    ''|Z*) return 1 ;;
+    *) return 0 ;;
+  esac
+}
+
 # Wait up to <limit> 0.1s ticks for <file> to exist. The watcher's first poll
 # can take longer than a fixed wait_live window (it runs the bootstrap scans and
 # a full fleet pass before the pane branch), so an absorb assertion must wait for
@@ -128,7 +137,7 @@ wait_file_exists() {  # <file> <pid> [limit]
   local file=$1 pid=$2 limit=${3:-300} i=0
   while [ "$i" -lt "$limit" ]; do
     [ -e "$file" ] && return 0
-    kill -0 "$pid" 2>/dev/null || return 1
+    watcher_is_running "$pid" || return 1
     sleep 0.1
     i=$((i + 1))
   done
@@ -141,7 +150,7 @@ wait_file_gone() {  # <file> <pid> [limit]
   local file=$1 pid=$2 limit=${3:-300} i=0
   while [ "$i" -lt "$limit" ]; do
     [ -e "$file" ] || return 0
-    kill -0 "$pid" 2>/dev/null || return 1
+    watcher_is_running "$pid" || return 1
     sleep 0.1
     i=$((i + 1))
   done
