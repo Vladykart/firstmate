@@ -1,0 +1,40 @@
+$ FM_TEST_ONLY=test_current_busy_generation_pause_uses_long_cadence bash tests/fm-watch-triage.test.sh
+ok - only an exactly bound trusted busy generation uses long-cadence tracking
+$ FM_TEST_ONLY=test_old_or_unordered_pause_does_not_mask_newer_busy_generation bash tests/fm-watch-triage.test.sh
+ok - old or unordered pauses cannot mask a newer busy generation
+$ FM_TEST_ONLY=test_afk_current_busy_generation_pause_leaves_long_cadence_to_daemon bash tests/fm-watch-triage.test.sh
+ok - away mode retires a current-generation pause's short timer and leaves long-cadence ownership to the daemon
+$ FM_TEST_ONLY=test_status_append_binds_only_busy_pauses bash tests/fm-busy-state.test.sh
+ok - native progress is generation-bound, separately recorded, and cleared on arm and retire
+ok - arm mints a gen sidecar and seeds busy fm-spawn at seq=1
+ok - apply advances seq and exposes one exact generation-bound lifecycle snapshot
+ok - status append binds pauses only to unchanged, trusted busy lifecycle snapshots
+ok - firstmate-owned interrupt and recovery events bind to the current gen
+ok - apply is refused for a task whose busy contract was never armed
+ok - retire waits for the writer lock and cannot remove a new incarnation
+ok - retire treats only an absent sidecar as already retired
+ok - the writer breaks a stale lock instead of dying on GNU stat output
+ok - a late event from a previous incarnation is rejected, record unchanged
+ok - a record from a stale incarnation classifies unknown, never idle
+ok - a converted adapter with no record classifies unknown, never idle
+ok - malformed records classify unknown malformed, never busy or idle
+ok - a record with no armed gen sidecar classifies unknown
+ok - a record is trusted only by the adapter whose source wrote it
+ok - converted adapters never classify busy from rendered footer text
+ok - a Claude launch parked on its trust or external-imports dialog classifies unknown launch-prompt
+ok - a Pi-family launch (pi, pi-signed, omp) parked on the project-trust dialog classifies unknown launch-prompt
+ok - the Pi signature requires both the dialog heading and its decline option, not the bare word trust
+ok - a Gemini launch parked on its trust, auth-picker, or API-key dialog classifies unknown launch-prompt
+ok - the launch-prompt backstop never reclassifies a genuinely working launch
+ok - the launch-prompt backstop is scoped to harnesses with a verified signature
+ok - the launch-prompt backstop only ever touches the untouched fm-spawn seed
+ok - the launch-prompt backstop never runs without a captured tail
+ok - the grok fallback is regex-scoped to grok and classifies only grok tasks
+ok - codex classifies unknown until a semantic source passes its verification gate
+ok - standalone kimi classifies unknown until the live verification gate opens
+ok - cursor classifies only from its transcript fold, never rendered text or native state
+ok - endpoint death is the only process-level override and yields dead, never busy
+ok - herdr native state cannot close or reopen a valid adapter lifecycle record
+ok - record parsing never clobbers the caller's positional parameters, glob setting, or fields
+ok - the boolean view reports busy only on an exact busy verdict
+all fm-busy-state tests passed
