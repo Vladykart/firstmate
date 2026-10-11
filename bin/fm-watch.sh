@@ -1567,8 +1567,7 @@ wedge_timer_check() {  # <window> <since-file> <triage-label> <escalation-count-
 # change semantic busy state. Before either marker exists, age the spawn record.
 # The caller checks busy state and routes a crossed bound through inspection.
 current_busy_generation_is_paused() {  # <task>
-  fm_busy_declared_pause_valid "$STATE" "$1" || return 1
-  fm_busy_record_read "$STATE" "$1" snapshot 2>/dev/null | grep -q '^busy '
+  fm_busy_declared_pause_valid "$STATE" "$1" require-bound
 }
 
 handle_current_busy_pause() {  # <window> <task> <hash> <since-file> <escalation-file>

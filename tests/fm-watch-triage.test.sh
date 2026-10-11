@@ -4802,7 +4802,7 @@ test_cleanup_marker_lock_bound_is_decimal_with_zero_default() {
 # automatic interrupt or restart.
 
 test_current_busy_generation_pause_uses_long_cadence() {
-  local dir state fakebin out capture_file window key pane_hash sig pid busy_ts
+  local dir state fakebin out capture_file window key pane_hash sig pid busy_ts projects workspace project conv
   dir=$(make_case busy-current-pause); state="$dir/state"; fakebin="$dir/fakebin"
   out="$dir/watch.out"; capture_file="$dir/pane.txt"; window="test:fm-busy-current-pause"
   printf 'Working... current paused generation\n' > "$capture_file"
@@ -4830,7 +4830,37 @@ test_current_busy_generation_pause_uses_long_cadence() {
     || { reap "$pid"; fail "a current-generation pause used wedge cadence: $(cat "$out")"; }
   [ ! -s "$out" ] || { reap "$pid"; fail "a current-generation pause printed a wake"; }
   reap "$pid"
-  pass "a pause bound to the current busy generation uses long-cadence tracking"
+
+  dir=$(make_case busy-untrusted-pause); state="$dir/state"; fakebin="$dir/fakebin"
+  out="$dir/watch.out"; capture_file="$dir/pane.txt"; window="test:fm-busy-untrusted-pause"
+  projects="$dir/projects"; workspace="$dir/worktree"; project="$projects/opaque"; conv=conv-current
+  mkdir -p "$project/agent-transcripts/$conv" "$workspace"
+  printf '{"workspacePath":"%s"}\n' "$workspace" > "$project/.workspace-trusted"
+  printf '{"role":"user"}\n' > "$project/agent-transcripts/$conv/$conv.jsonl"
+  printf 'projects_root=%s\nworkspace_root=%s\n' "$projects" "$workspace" \
+    > "$state/untrusted-pause.cursor-session"
+  printf 'Working... untrusted busy record\n' > "$capture_file"
+  printf 'window=%s\nkind=ship\nharness=cursor\nbackend=tmux\n' "$window" \
+    > "$state/untrusted-pause.meta"
+  record_pi_busy "$state" untrusted-pause
+  printf 'paused: unbound declaration must not mask a wedge\n' > "$state/untrusted-pause.status"
+  sig=$(seen_sig "$state/untrusted-pause.status"); printf '%s' "$sig" > "$state/.seen-untrusted-pause_status"
+  key=$(printf '%s' "$window" | tr ':/.' '___')
+  pane_hash=$(hash_text "Working... untrusted busy record")
+  printf '%s' "$pane_hash" > "$state/.hash-$key"
+  printf '1\n' > "$state/.count-$key"
+  set_mtime $(( $(date +%s) - 500 )) "$state/untrusted-pause.turn-ended"
+  prime_turnend_seen "$state/untrusted-pause.turn-ended"
+  printf '%s\n' $(( $(date +%s) - 500 )) > "$state/.stale-since-$key"
+
+  PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$window" FM_FAKE_TMUX_CAPTURE="$capture_file" \
+    FM_STATE_OVERRIDE="$state" FM_BUSY_TURN_MAX_SECS=1 FM_STALE_ESCALATE_SECS=1 FM_PAUSE_RESURFACE_SECS=999 \
+    FM_POLL=1 FM_SIGNAL_GRACE=1 FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 "$WATCH" > "$out" &
+  pid=$!
+  wait_for_exit "$pid" 100 || fail "an untrusted busy record let an unbound pause mask a wedge"
+  grep -F "possible wedge" "$out" >/dev/null \
+    || fail "an untrusted busy record removed wedge diagnostics: $(cat "$out")"
+  pass "only an exactly bound trusted busy generation uses long-cadence tracking"
 }
 
 test_old_or_unordered_pause_does_not_mask_newer_busy_generation() {
