@@ -48,6 +48,11 @@ Require the actual job contexts: `Lint 1`, `Lint 2`, `Test coverage guard`, `Rep
 The last name is the compliance job context, not its workflow title; its existing automation exceptions remain unchanged.
 The timing aggregate is not a substitute for individual jobs because it can succeed while collecting evidence from a failed run.
 
+If a workflow reports `action_required` with zero jobs and no logs, it has not executed its checks; inspect the run's GitHub Actions page for the required approval before diagnosing a test failure.
+An authorized repository maintainer must resolve the approval there; changing workflow permissions or weakening required checks is not a substitute.
+After approval, require results for the current PR head and let no-mistakes publish its own current-head attestation from completed pipeline steps.
+Never record parked, held, or unexecuted steps as passed to satisfy the compliance check.
+
 Apply the approved rule change only after the corresponding workflow is green and landed, confirming exact names and the Actions integration id from real checks first.
 Snapshot the current ruleset, amend that same rule with the authenticated GitHub API or settings UI, and read back both the ruleset and effective branch rules.
 Verify missing or red checks prevent ordinary merging without creating a test merge; administrator override intentionally remains available.
