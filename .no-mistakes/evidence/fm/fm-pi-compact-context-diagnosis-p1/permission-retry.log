@@ -1,0 +1,1 @@
+ok - run wrapper: a fresh primary that cannot create its state dir says so on stderr, then stands down

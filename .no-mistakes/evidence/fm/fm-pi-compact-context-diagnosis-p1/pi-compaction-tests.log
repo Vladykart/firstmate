@@ -1,0 +1,8 @@
+ok - real Pi automatic compaction settles once without a refresh-only request and the next prompt succeeds
+ok - real Pi manual /compact submits once, leaves headroom, refreshes instructions, and permits the next prompt
+ok - real Pi bounded refresh control remains complete and below the provider limit
+ok - real Pi next prompt survives a selected model enforcing one token per UTF-8 byte
+ok - real Pi second post-compaction prompt keeps a bounded refresh without accumulating the prior one
+ok - local provider hard-limit control rejects an oversized real Pi request
+ok - Pi and pi-signed share this extension path; other primary harnesses and runtime backends do not execute its compaction hook
+# fm-pi-compaction-context.test.sh: all assertions passed

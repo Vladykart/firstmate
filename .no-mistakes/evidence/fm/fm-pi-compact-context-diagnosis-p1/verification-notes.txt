@@ -1,0 +1,8 @@
+Pi version: 1.4.0 (installed with npm --prefix .test-pi-runtime --no-save --package-lock=false @earendil-works/pi-coding-agent@1.4.0; removed after test).
+Executed tests/fm-pi-compaction-context.test.sh via a temporary copy in tests/ with capture-only additions: retain provider JSONL before each reset and retain tmux capture-pane before each session closes. Assertions and product fixtures unchanged.
+Provider transcript records actual HTTP requests; terminal transcripts capture actual Pi TUI scrollback.
+Coverage command: bin/fm-test-run.sh --check-coverage
+Result: FM_TEST_COVERAGE ok total=294 parallel=26 parallel_max_ms=814249 parallel_imbalance_ms=552 parallel_unhinted=0 serial=252 serial_shards=9 serial_unhinted=1 serial_max_ms=1192918 serial_budget_ms=1200000 herdr=16
+Session-start baseline: bash tests/fm-sessionstart-nudge.test.sh stopped at the existing chmod permission test because root bypasses DAC. Retried that exact test function with capsh --drop=cap_dac_override,cap_dac_read_search; passed.
+Executed unchanged Pi test functions directly from a temporary copy of tests/fm-sessionstart-nudge.test.sh: test_pi_startup_classifies_cli_continuations, test_pi_sessionstart_generation_prerequisite, test_pi_reload_releases_sessionstart_exit_listener, test_pi_large_sessionstart_digest_is_delivered_loudly, test_pi_compact_refresh_is_nontriggering_bounded_and_restorable. All passed. This includes ineligible compaction (no context injection or appendEntry), reload/resume/fork with absent or invalid refresh state, and eligible-failure warning/pointer fallback.
+All temporary test scripts and local npm installation removed. No source changes.

@@ -1,0 +1,54 @@
+
+ ▀▀█  v1.4.0
+ █▀ █ escape interrupt · ctrl+c/ctrl+d clear/exit · / commands · ! bash · ctrl+o more
+ Press ctrl+o to show full startup help and loaded resources.
+
+ Pi can explain its own features and look up its docs. Ask it how to use or extend Pi.
+
+[Skills]
+  agentation, agentstech-kaneo, animate, better-ui, codex, interview, kaneo-cli, lavish, no-mistakes, ste
+
+[Extensions]
+  fm-primary-turnend-guard.ts
+
+
+ OVER_HARD_LIMIT
+
+
+ Error: 400: {"message":"This model's maximum context length is 65536 tokens. However, your messages resulted in approximately 75584
+ tokens.","type":"invalid_request_error","param":"messages","code":"context_length_exceeded"}
+ If this looks like a pi bug, /bug sends a report to the developers.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+/tmp/fm-pi-compaction-context.WDBoRU/over/project (main)
+115.3%/66k                                                                                                                                                                                                        diag-model
