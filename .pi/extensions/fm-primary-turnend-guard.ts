@@ -587,14 +587,6 @@ function restoreCompactRefresh(ctx: SessionStartContext): void {
     }
     return;
   }
-  compactRefresh = {
-    version: 1,
-    raw: "",
-    observedBytes: 0,
-    hardTruncated: false,
-    reserveTokens: 16384,
-    keepRecentTokens: 20000,
-  };
 }
 
 function compactRefreshContent(
@@ -828,6 +820,11 @@ export default function (pi: ExtensionAPI) {
     sessionstartGeneration = generation;
     const result = await claimSessionstartResult(generation, ctx);
     if (!result) return;
+    if (result.kind === "ineligible" || result.kind === "cancelled") {
+      compactRefresh = undefined;
+      compactRefreshNotice = "";
+      return;
+    }
     const raw = result.kind === "ready" ? result.raw : "";
     compactRefresh = {
       version: 1,

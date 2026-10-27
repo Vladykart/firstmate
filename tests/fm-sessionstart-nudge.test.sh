@@ -986,6 +986,8 @@ test_pi_compact_refresh_is_nontriggering_bounded_and_restorable() {
   cp "$ROOT/bin/fm-operational-input.sh" "$fixture/bin/"
   cat > "$fixture/bin/fm-sessionstart-run.sh" <<'SH'
 #!/usr/bin/env bash
+[ ! -f "$FM_HOME/state/ineligible" ] || exit 3
+[ ! -f "$FM_HOME/state/failed" ] || exit 1
 printf 'CURRENT AGENTS.md - INSTRUCTION REFRESH\n'
 printf 'COMPACT_REFRESH_CURRENT_INSTRUCTIONS\n'
 head -c 260000 /dev/zero | tr '\0' D
@@ -1002,6 +1004,7 @@ SH
     FM_HOME="$fixture" FM_ROOT_OVERRIDE="$fixture" \
     node --input-type=module 2>&1 <<'JS'
 import { pathToFileURL } from "node:url";
+import { writeFileSync, unlinkSync } from "node:fs";
 
 function makePi() {
   const handlers = new Map();
@@ -1088,6 +1091,44 @@ if (!restoredResult?.messages[1]?.content.includes("COMPACT_REFRESH_CURRENT_INST
   throw new Error("durable non-context refresh state was not restored after reload");
 }
 if (restored.sent.length !== 0) throw new Error("reload restoration persisted or triggered a model message");
+
+writeFileSync(`${process.env.FM_HOME}/state/ineligible`, "");
+await first.handlers.get("session_compact")({}, sessionCtx);
+if (first.entries.length !== 1) throw new Error("ineligible compaction persisted refresh state");
+if (await first.handlers.get("context")(contextEvent, contextCtx)) {
+  throw new Error("ineligible compaction retained or injected refresh context");
+}
+unlinkSync(`${process.env.FM_HOME}/state/ineligible`);
+
+for (const reason of ["reload", "resume", "fork"]) {
+  for (const tail of [[], [{ type: "custom", customType: first.entries[0].customType, data: { version: 1 } }]]) {
+    await restored.handlers.get("session_start")(
+      { reason },
+      { ...sessionCtx, sessionManager: { ...sessionCtx.sessionManager,
+        getBranch: () => [...branch, { type: "compaction" }, ...tail] } },
+    );
+    if (await restored.handlers.get("context")(contextEvent, contextCtx)) {
+      throw new Error(`${reason} synthesized refresh without valid state after latest compaction`);
+    }
+    await restored.handlers.get("session_shutdown")({});
+  }
+}
+
+writeFileSync(`${process.env.FM_HOME}/state/failed`, "");
+const notices = [];
+await first.handlers.get("session_compact")({}, {
+  ...sessionCtx, hasUI: true, ui: { notify: (...args) => notices.push(args) },
+});
+if (first.entries.length !== 2 || first.entries[1].data.raw !== "") {
+  throw new Error("eligible failure lost its durable fallback");
+}
+if (!notices.some(([, level]) => level === "warning")) throw new Error("eligible failure lost its warning");
+const fallback = await first.handlers.get("context")(contextEvent, contextCtx);
+if (!fallback?.messages[1]?.content.includes("/AGENTS.md completely")) {
+  throw new Error("eligible failure lost its model-readable fallback");
+}
+await first.handlers.get("session_shutdown")({});
+
 JS
   ) || status=$?
   [ "$status" -eq 0 ] || fail "Pi compact refresh behavior failed: $out"
