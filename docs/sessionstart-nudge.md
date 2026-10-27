@@ -275,8 +275,9 @@ The extension maps Pi events onto wrapper sources:
 
 Setup-created entries such as `--name` are not restoration evidence.
 
-Each mapped session generation starts one native prerequisite.
+Each mapped `session_start` generation starts one native prerequisite.
 `before_agent_start` awaits its matching result and returns one persistent context message before the first provider call.
+Compaction uses the separate [Pi compaction delivery](#pi-compaction-delivery) path.
 
 #### Pi message delivery
 
