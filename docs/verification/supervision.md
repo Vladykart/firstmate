@@ -141,18 +141,22 @@ Codex exec exposes only startup and context-preserving resume through tracked re
 
 ### Model-budgeted Pi compaction refresh
 
-The credential-free context-limit regression ran on 2026-08-29 with Pi 0.84.3.
+The credential-free context-limit regression last ran on 2026-10-27, passing against Pi 1.4.0, the version CI installs, and against Pi 0.85.1.
+The Pi 1.4.0 run put an isolated `npm install` of `@earendil-works/pi-coding-agent@1.4.0` first on `PATH`, while the Pi 0.85.1 run used the host's global install.
+Pi 1.4.0 serializes a split turn's prefix for summarization under a `# Conversation` heading rather than the `<conversation>` block of earlier versions, so the local provider classifies a request as a summary on any one of those markers or the summarizer's system prompt.
 It used the real Pi TUI, the real Firstmate primary extension, isolated Pi and Firstmate homes, and a local OpenAI-compatible provider that both advertised and enforced a 65,536-token context window.
 The large-digest cases emitted 250,000 characters, while the control emitted 50,000 characters and the enforced-overflow case emitted 300,000 characters.
 The automatic case reported one compaction episode and made no non-summary provider request until the test supplied the next prompt.
 The manual case submitted `/compact` once, observed `Compacted from`, made no refresh-only provider request, and completed the next prompt below the hard limit.
 Both large-digest next prompts carried `AGENTS_MARKER=current` plus the model-readable truncation marker, while the bounded control carried the current marker without truncation.
-The adversarial case selected a model that reports and enforces one token per UTF-8 byte rather than the representative chars/4 approximation the other cases use; its first post-compaction prompt succeeds below the hard limit against the single UTF-8 byte estimate that base context and the refresh budget always use, and a second post-compaction prompt proves the first request's ephemeral refresh never accumulates into the second request's base context, since that base context is rebuilt from persisted session entries and the refresh itself is never persisted, so it too succeeds below the hard limit while still receiving a bounded refresh. This is the deliberate conservative over-reservation described in `docs/sessionstart-nudge.md`, not an authoritative token measurement, since Pi 0.84.3 exposes no per-entry token count.
+The adversarial case selected a model that reports and enforces one token per UTF-8 byte rather than the representative chars/4 approximation the other cases use; its first post-compaction prompt succeeds below the hard limit against the single UTF-8 byte estimate that base context and the refresh budget always use.
+A second post-compaction prompt proves the first request's ephemeral refresh never accumulates into the second request's base context, since that base context is rebuilt from persisted session entries and the refresh itself is never persisted, so it too succeeds below the hard limit while still receiving a bounded refresh.
+This is the deliberate conservative over-reservation described in `docs/sessionstart-nudge.md`, not an authoritative token measurement, since neither Pi 0.84.3 nor Pi 1.4.0 exposes a per-entry token count.
 The 300,000-character control received the provider's `maximum context length is 65536 tokens` rejection, proving the successful cases did not use a permissive endpoint.
 The fixture guard returned healthy and the watcher extension was absent throughout, so neither supervision path is a precondition for the result.
 
 ```sh
-tests/fm-pi-compaction-context.test.sh
+bin/fm-test-run.sh tests/fm-pi-compaction-context.test.sh
 # ok - real Pi automatic compaction settles once without a refresh-only request and the next prompt succeeds
 # ok - real Pi manual /compact submits once, leaves headroom, refreshes instructions, and permits the next prompt
 # ok - real Pi bounded refresh control remains complete and below the provider limit

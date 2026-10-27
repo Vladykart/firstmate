@@ -317,7 +317,7 @@ Those messages are rebuilt from persisted session entries on every `context` eve
 Netting one back out would need a lower bound on that delivery's token count, and no fixed bytes-per-token divisor is safe across tokenizers, since a single token can encode arbitrarily many bytes.
 
 This bound is a deliberate conservative over-reservation, not an authoritative measurement, because Pi does not expose the measurement it would need.
-Verified against Pi 0.84.3: there is no per-entry or per-content token count in the extension surface, the session format, or the documented API.
+Verified against Pi 0.84.3 and again against Pi 1.4.0: there is no per-entry or per-content token count in the extension surface, the session format, or the documented API.
 The exported `estimateTokens` is a `chars / 4` heuristic rather than a tokenizer, and `ctx.getContextUsage()` is itself partly estimated, using the last assistant usage plus that same heuristic for trailing messages.
 Authoritative token figures exist only as per-request provider `Usage` totals, which cannot be attributed to one injected entry.
 Because base context is counted in bytes while the model's limit is counted in tokens, the reservation typically overshoots real token usage by several times, so the refresh is smaller than strictly necessary and can shrink as a session fills.

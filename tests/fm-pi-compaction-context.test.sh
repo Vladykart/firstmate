@@ -63,6 +63,22 @@ def message_text(message):
     return ""
 
 
+def is_summarization(messages, texts):
+    # Pi wraps the conversation it summarizes in a <conversation> block, and Pi
+    # 1.4.0 serializes a split turn's prefix under a "# Conversation" heading
+    # instead; both run under the summarizer's own system prompt. Any one of
+    # these independent signals marks a summary request, so a format change in
+    # one cannot reclassify a summary as a model turn the refresh caused.
+    roles = [message.get("role") for message in messages]
+    system = "\n".join(text for role, text in zip(roles, texts) if role in ("system", "developer"))
+    users = [text for role, text in zip(roles, texts) if role == "user"]
+    return (
+        any("<conversation>" in text for text in users)
+        or any(text.startswith("# Conversation\n") for text in users)
+        or "summarization assistant" in system
+    )
+
+
 class Handler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
 
@@ -80,7 +96,7 @@ class Handler(BaseHTTPRequestHandler):
         chars = len(serialized)
         utf8_bytes = len(serialized.encode("utf-8"))
         byte_model = payload.get("model") == "diag-byte-model"
-        compact = "<conversation>" in joined
+        compact = is_summarization(messages, texts)
         hard_units = utf8_bytes if byte_model else math.ceil(chars / 4)
         over = hard_units > context_tokens
         record = {
