@@ -310,6 +310,7 @@ Whenever the digest is incomplete, this approved containment keeps the prefix an
 
 Compaction shares that same generation ownership and cancellation - a stale or superseded compaction cannot deliver - but is deliberately different from startup delivery: a persistent full custom message would refill the context Pi just reduced and would itself enter a later summarization span, and an automatic retry may have no new `before_agent_start` to await.
 The extension captures the active compaction reserve from `session_before_compact`, runs the ordinary `compact` source through the same generation machinery, and stores its bounded output as a custom entry that does not participate in model context, never through an optionless `sendMessage`.
+An intentionally ineligible or cancelled result clears the refresh and writes no refresh entry; an eligible failed or empty digest retains a fallback pointer and emits a warning when the UI is available.
 Every later provider request receives that refresh ephemerally through Pi's `context` event, including an overflow retry, so delivery neither queues a continuation nor accumulates in session history.
 The selected model's context window and the active output reserve set the outer budget.
 The extension sizes each delivered refresh against a UTF-8 byte count, a valid upper bound on its token count since every token encodes at least one byte.
@@ -328,7 +329,8 @@ A five-percent safety margin with a 2,048-token floor remains outside the refres
 Because that shrinkage is the accepted cost, it is never silent: every truncation or suppression of the refresh reports what was withheld and why, naming the delivered and available byte counts, the reserved base context, and where the omitted instructions remain readable.
 The report is keyed on those measured figures rather than on the kind of degradation, so a budget that keeps shrinking keeps reporting instead of falling silent after the first notice.
 If the digest does not fit, the retained prefix ends with model-readable omission accounting and directs the model to the current `AGENTS.md` plus the named durable sources instead of silently dropping current instructions.
-The same non-context custom entry restores this behavior after reload, resume, or fork without making the digest summarizable user content.
+Reload, resume, and fork restore only an explicit valid non-context refresh entry after the branch's latest compaction, without making the digest summarizable user content.
+If no such entry exists, they inject no compaction refresh rather than synthesizing a fallback that could bypass an intentional stand-down.
 
 ### OpenCode
 
