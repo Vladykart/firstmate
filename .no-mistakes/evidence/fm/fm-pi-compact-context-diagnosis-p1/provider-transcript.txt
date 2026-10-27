@@ -1,0 +1,34 @@
+
+=== auto ===
+{"path":"/v1/chat/completions","chars":251966,"utf8_bytes":251968,"byte_model":false,"compact":false,"over":false,"auto":true,"manual_next":false,"bounded_next":false,"current_instructions":false,"truncated_refresh":false}
+{"path":"/v1/chat/completions","chars":1369,"utf8_bytes":1369,"byte_model":false,"compact":true,"over":false,"auto":true,"manual_next":false,"bounded_next":false,"current_instructions":false,"truncated_refresh":false}
+{"path":"/v1/chat/completions","chars":251057,"utf8_bytes":251059,"byte_model":false,"compact":true,"over":false,"auto":false,"manual_next":false,"bounded_next":false,"current_instructions":false,"truncated_refresh":false}
+{"path":"/v1/chat/completions","chars":61033,"utf8_bytes":61035,"byte_model":false,"compact":false,"over":false,"auto":false,"manual_next":false,"bounded_next":false,"current_instructions":true,"truncated_refresh":true}
+
+=== manual ===
+{"path":"/v1/chat/completions","chars":251967,"utf8_bytes":251969,"byte_model":false,"compact":false,"over":false,"auto":false,"manual_next":false,"bounded_next":false,"current_instructions":false,"truncated_refresh":false}
+{"path":"/v1/chat/completions","chars":1368,"utf8_bytes":1368,"byte_model":false,"compact":true,"over":false,"auto":false,"manual_next":false,"bounded_next":false,"current_instructions":false,"truncated_refresh":false}
+{"path":"/v1/chat/completions","chars":251057,"utf8_bytes":251059,"byte_model":false,"compact":true,"over":false,"auto":false,"manual_next":false,"bounded_next":false,"current_instructions":false,"truncated_refresh":false}
+{"path":"/v1/chat/completions","chars":61033,"utf8_bytes":61035,"byte_model":false,"compact":false,"over":false,"auto":false,"manual_next":true,"bounded_next":false,"current_instructions":true,"truncated_refresh":true}
+
+=== bounded ===
+{"path":"/v1/chat/completions","chars":51969,"utf8_bytes":51971,"byte_model":false,"compact":false,"over":false,"auto":false,"manual_next":false,"bounded_next":false,"current_instructions":false,"truncated_refresh":false}
+{"path":"/v1/chat/completions","chars":1369,"utf8_bytes":1369,"byte_model":false,"compact":true,"over":false,"auto":false,"manual_next":false,"bounded_next":false,"current_instructions":false,"truncated_refresh":false}
+{"path":"/v1/chat/completions","chars":51057,"utf8_bytes":51059,"byte_model":false,"compact":true,"over":false,"auto":false,"manual_next":false,"bounded_next":false,"current_instructions":false,"truncated_refresh":false}
+{"path":"/v1/chat/completions","chars":55422,"utf8_bytes":55424,"byte_model":false,"compact":false,"over":false,"auto":false,"manual_next":false,"bounded_next":true,"current_instructions":true,"truncated_refresh":false}
+
+=== byte ===
+{"path":"/v1/chat/completions","chars":51966,"utf8_bytes":51968,"byte_model":true,"compact":false,"over":false,"auto":false,"manual_next":false,"bounded_next":false,"current_instructions":false,"truncated_refresh":false}
+{"path":"/v1/chat/completions","chars":1369,"utf8_bytes":1369,"byte_model":true,"compact":true,"over":false,"auto":false,"manual_next":false,"bounded_next":false,"current_instructions":false,"truncated_refresh":false}
+{"path":"/v1/chat/completions","chars":51057,"utf8_bytes":51059,"byte_model":true,"compact":true,"over":false,"auto":false,"manual_next":false,"bounded_next":false,"current_instructions":false,"truncated_refresh":false}
+{"path":"/v1/chat/completions","chars":60999,"utf8_bytes":61001,"byte_model":true,"compact":false,"over":false,"auto":false,"manual_next":false,"bounded_next":true,"current_instructions":true,"truncated_refresh":true}
+
+=== byte ===
+{"path":"/v1/chat/completions","chars":51966,"utf8_bytes":51968,"byte_model":true,"compact":false,"over":false,"auto":false,"manual_next":false,"bounded_next":false,"current_instructions":false,"truncated_refresh":false}
+{"path":"/v1/chat/completions","chars":1369,"utf8_bytes":1369,"byte_model":true,"compact":true,"over":false,"auto":false,"manual_next":false,"bounded_next":false,"current_instructions":false,"truncated_refresh":false}
+{"path":"/v1/chat/completions","chars":51057,"utf8_bytes":51059,"byte_model":true,"compact":true,"over":false,"auto":false,"manual_next":false,"bounded_next":false,"current_instructions":false,"truncated_refresh":false}
+{"path":"/v1/chat/completions","chars":60999,"utf8_bytes":61001,"byte_model":true,"compact":false,"over":false,"auto":false,"manual_next":false,"bounded_next":true,"current_instructions":true,"truncated_refresh":true}
+{"path":"/v1/chat/completions","chars":60583,"utf8_bytes":60585,"byte_model":true,"compact":false,"over":false,"auto":false,"manual_next":false,"bounded_next":true,"current_instructions":true,"truncated_refresh":true}
+
+=== over ===
+{"path":"/v1/chat/completions","chars":301969,"utf8_bytes":301971,"byte_model":false,"compact":false,"over":true,"auto":false,"manual_next":false,"bounded_next":false,"current_instructions":false,"truncated_refresh":false}
