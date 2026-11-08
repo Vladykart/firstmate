@@ -1,0 +1,25 @@
+Behavioral reproduction: Claude Stop hook, simulated harness and actionable watcher arm
+The actual hook, lock/ownership checks, persisted epoch, and emitted stderr execute; no live Claude service is used.
+
+base: earlier failure alarm present, actionable watcher close
+Hook exit: 0
+Delivered stderr:
+firstmate watcher auto-arm suppressed - the attended failure alarm is already committed for this episode, so this suppressed continuation emits no further rewake.
+Persisted epoch:
+epoch=1 owner_pid=3463661 outcome=failed-suppressed updated_at=1794125247
+linux-starttime=187325301 cmdline-hex=62617368002f746d702f666d2d636c617564652d73746f702d6175746f61726d2e4833374942612f65766964656e63652d626173652f62696e2f666d2d636c617564652d73746f702d6175746f61726d2e736800
+Failure alarm: retained
+
+target: earlier failure alarm present, actionable watcher close
+Hook exit: 2
+Delivered stderr:
+firstmate watcher wake - one supervision event needs a handling turn now.
+stale: fixture-win actionable
+Run bin/fm-wake-drain.sh first, handle the wake, then run its exact WAKE_ACK_REQUIRED --ack-through command. Until that post-handling acknowledgement, interruption leaves the wake durable for idempotent re-handling. This Stop hook owns watcher continuity: when the handling turn ends, the next needed cycle arms automatically - do NOT run bin/fm-watch-arm.sh after an ordinary wake.
+Persisted epoch:
+epoch=1 owner_pid=3464689 outcome=rewake updated_at=1794125257 session_pid=3464675 recovery_generation=fixture-generation
+linux-starttime=187325852 cmdline-hex=62617368002f746d702f666d2d636c617564652d73746f702d6175746f61726d2e4833374942612f65766964656e63652d7461726765742f62696e2f666d2d636c617564652d73746f702d6175746f61726d2e736800
+Failure alarm: cleared
+
+Repeated Stop handling with watcher lifecycle assertions:
+ok - auto-arm: 10 consecutive actionable Stop events keep one live watcher and an advancing beat despite stale alarm markers

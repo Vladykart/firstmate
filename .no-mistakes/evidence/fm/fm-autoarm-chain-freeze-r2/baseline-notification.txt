@@ -1,0 +1,9 @@
+Scenario: Stop hook receives actionable watcher close after an earlier attended failure alarm.
+Initial state: failure-notified, failure-alarmed, block budget count=4.
+Hook exit: 0
+Hook output:
+firstmate watcher auto-arm suppressed - the attended failure alarm is already committed for this episode, so this suppressed continuation emits no further rewake.
+Persisted epoch outcome: failed-suppressed
+.claude-autoarm-failure-notified: present
+.claude-autoarm-failure-alarmed: present
+.turnend-claude-blocks: present

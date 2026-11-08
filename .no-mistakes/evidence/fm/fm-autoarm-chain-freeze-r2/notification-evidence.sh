@@ -12,7 +12,7 @@
 set -u
 
 # shellcheck source=tests/lib.sh
-. "/root/.no-mistakes/worktrees/c24dd9a8dd22/01M6W8RRPBXTVSM0F2FNBR5B6J/tests/lib.sh"
+. "/root/.no-mistakes/worktrees/c24dd9a8dd22/01M6X0F53JKGBHSF3Y8HMZMFYY/tests/lib.sh"
 
 TMP_ROOT=$(fm_test_tmproot fm-claude-stop-autoarm)
 fm_git_identity fmtest fmtest@example.invalid
@@ -21,6 +21,8 @@ FAKEBIN=$(fm_fakebin "$TMP_ROOT/fakebin")
 ln -s /bin/bash "$FAKEBIN/claude"
 FAKE_CLAUDE="$FAKEBIN/claude"
 export FAKE_CLAUDE
+FM_AUTOARM_TEST_PID=$$
+export FM_AUTOARM_TEST_PID
 
 # Copy the hook and its sourced dependencies into a fixture checkout.
 install_autoarm_scripts() {
@@ -101,6 +103,16 @@ write_arm_fixture() {
   # fails while state/successor-fail exists.
   cat > "$dir/bin/fm-watch-arm.sh" <<'SH'
 #!/usr/bin/env bash
+# The chain fixture shares this exclusive slot across foreground and successor
+# arms. Acquire before either branch so overlapping successors are observable.
+if [ -e "$FM_HOME/state/check-watcher-overlap" ]; then
+  if mkdir "$FM_HOME/state/watcher-live" 2>/dev/null; then
+    trap 'rmdir "$FM_HOME/state/watcher-live"; : > "$FM_HOME/state/watcher-exited-$$"' EXIT
+  else
+    : > "$FM_HOME/state/watcher-overlap"
+    exit 1
+  fi
+fi
 if [ -n "${FM_WATCH_PREDECESSOR_ARM_PID:-}" ]; then
   printf 'arm=%s predecessor=%s\n' "$$" "$FM_WATCH_PREDECESSOR_ARM_PID" >> "$FM_HOME/state/successor-ran"
   if [ -e "$FM_HOME/state/successor-fail" ]; then
@@ -108,7 +120,13 @@ if [ -n "${FM_WATCH_PREDECESSOR_ARM_PID:-}" ]; then
     exit 1
   fi
   printf 'watcher: started pid=%s (beacon fresh)\n' "$$"
-  while [ -e "$FM_HOME/state/successor-park" ]; do sleep 0.05; done
+  # The test releases this gate after observing the live successor. Do not
+  # expire it on a wall-clock deadline: loaded runners may take longer to
+  # reach that assertion. Stop if the test exits before releasing the gate.
+  while [ -e "$FM_HOME/state/successor-park" ] \
+    && kill -0 "$FM_AUTOARM_TEST_PID" 2>/dev/null; do
+    sleep 0.05
+  done
   exit 0
 fi
 echo "$$" >> "$FM_HOME/state/arm-ran"
@@ -129,15 +147,11 @@ SH
       # beacon, and closes at once with an actionable wake, exactly as
       # bin/fm-watch-arm.sh does when a queued wake is waiting.
       cat >> "$dir/bin/fm-watch-arm.sh" <<'SH'
-if ! (set -C; : > "$FM_HOME/state/watcher-live") 2>/dev/null; then
-  : > "$FM_HOME/state/watcher-overlap"
-fi
 printf 'pending:downtime:fixture-generation\n' > "$FM_HOME/state/.watcher-down"
 touch "$FM_HOME/state/.last-watcher-beat"
 date +%s >> "$FM_HOME/state/watcher-beats"
 printf 'watcher: started pid=%s (beacon fresh)\n' "$$"
 printf 'signal: task.status done: fixture wake\n'
-rm -f "$FM_HOME/state/watcher-live"
 exit 0
 SH
       ;;
@@ -195,6 +209,12 @@ touch "$FM_HOME/state/.last-watcher-beat"
 printf 'watcher: started pid=%s (beacon fresh)\n' "$$"
 printf 'signal: task.status done: slow fixture\n'
 exit 0
+SH
+      ;;
+    signal-blocking)
+      cat >> "$dir/bin/fm-watch-arm.sh" <<'SH'
+# Stay parked through lock re-anchoring until the hook's signal handler kills us.
+while :; do sleep 1; done
 SH
       ;;
     blocking-actionable)
@@ -564,6 +584,126 @@ test_actionable_close_with_live_successor_rewakes_once() {
   pass "auto-arm: actionable close survives a healthy successor without duplicate delivery"
 }
 
+# A StopFailure firing is the API-error turn end that skips the whole Stop
+# phase, and it must drive the same claim/arm/rewake cycle a Stop does. No
+# Stop phase charges the guard's block budget during an error storm, so every
+# StopFailure-driven exit-2 continuation is paced instead: one inside the
+# previous one's cooldown waits out the remainder and then still delivers,
+# because dropping it would leave no further hook firing. An ordinary Stop is
+# never paced, and an expired cooldown delivers at once.
+test_stopfailure_close_rewakes_paced_per_cooldown() {
+  local dir out status fail_payload marker t0 elapsed
+  fail_payload='{"session_id":"sess-autoarm","hook_event_name":"StopFailure","error":"connection_failed","transcript_path":"/tmp/sess.jsonl"}'
+
+  dir=$(make_primary_dir "$TMP_ROOT/stopfailure")
+  marker="$dir/state/.claude-autoarm-stopfailure-rewake"
+  : > "$dir/state/task.meta"
+  write_arm_fixture "$dir" actionable
+  out=$(run_autoarm "$dir" "$fail_payload" 2>/dev/null); status=$?
+  expect_code 2 "$status" "a StopFailure firing with an actionable close must rewake like Stop"
+  assert_contains "$out" "stale: fixture-win actionable" "StopFailure rewake must carry the arm's reason line"
+  [ "$(epoch_outcome "$dir")" = rewake ] || fail "StopFailure epoch must record outcome=rewake, got: $(epoch_outcome "$dir")"
+  [ -e "$dir/state/arm-ran" ] || fail "the StopFailure hook never ran the arm"
+  [ -e "$marker" ] || fail "the committed StopFailure rewake never recorded its cooldown marker"
+
+  fm_touch_epoch $(( $(date +%s) - 1 )) "$marker"
+  t0=$(date +%s)
+  # Decimal configuration accepts leading zeros: 08 must wait eight seconds,
+  # not abort as an invalid octal once the previous commit's marker exists.
+  out=$(FM_CLAUDE_STOPFAILURE_REWAKE_COOLDOWN=08 run_autoarm "$dir" "$fail_payload" 2>/dev/null); status=$?
+  elapsed=$(( $(date +%s) - t0 ))
+  expect_code 2 "$status" "a StopFailure inside the cooldown must still deliver its rewake once the cooldown elapses"
+  assert_contains "$out" "stale: fixture-win actionable" "the paced StopFailure rewake must carry the arm's reason line"
+  [ "$elapsed" -ge 5 ] || fail "a StopFailure inside an 08s decimal cooldown set 1s ago must wait it out before delivering, took ${elapsed}s"
+  [ "$(epoch_outcome "$dir")" = rewake ] || fail "the paced StopFailure must record outcome=rewake, got: $(epoch_outcome "$dir")"
+  [ "$(stat -c %Y "$marker" 2>/dev/null || stat -f %m "$marker")" -ge $(( t0 + 5 )) ] || fail "the paced StopFailure rewake must restart the cooldown at its commit"
+
+  : > "$marker"
+  t0=$(date +%s)
+  out=$(FM_CLAUDE_STOPFAILURE_REWAKE_COOLDOWN=60 run_autoarm "$dir" 2>/dev/null); status=$?
+  elapsed=$(( $(date +%s) - t0 ))
+  expect_code 2 "$status" "an ordinary Stop inside the cooldown window must still rewake"
+  [ "$elapsed" -lt 60 ] || fail "an ordinary Stop must never wait out the StopFailure cooldown, took ${elapsed}s"
+  [ "$(epoch_outcome "$dir")" = rewake ] || fail "the ordinary Stop must record outcome=rewake, got: $(epoch_outcome "$dir")"
+
+  fm_touch_epoch $(( $(date +%s) - 400 )) "$marker"
+  out=$(run_autoarm "$dir" "$fail_payload" 2>/dev/null); status=$?
+  expect_code 2 "$status" "a StopFailure after the cooldown must rewake the still-pending wake"
+  [ "$(epoch_outcome "$dir")" = rewake ] || fail "the post-cooldown StopFailure must record outcome=rewake, got: $(epoch_outcome "$dir")"
+
+  pass "auto-arm: StopFailure rewakes are paced to one per cooldown and never dropped"
+}
+
+# A persistent API error with a broken watcher start reaches the failure
+# continuations instead of an actionable rewake. They are StopFailure-driven
+# exit-2 continuations too, so the same pace must bound the notice and every
+# suppressed retry after it, or error -> failure rewake -> error runs at full
+# speed with no Stop phase to charge the guard's budget.
+test_stopfailure_failure_continuations_are_paced() {
+  local dir out status fail_payload marker t0 elapsed
+  fail_payload='{"session_id":"sess-autoarm","hook_event_name":"StopFailure","error":"authentication_failed","transcript_path":"/tmp/sess.jsonl"}'
+
+  dir=$(make_primary_dir "$TMP_ROOT/stopfailure-failed")
+  marker="$dir/state/.claude-autoarm-stopfailure-rewake"
+  : > "$dir/state/task.meta"
+  write_arm_fixture "$dir" failed
+  out=$(run_autoarm "$dir" "$fail_payload" 2>/dev/null); status=$?
+  expect_code 2 "$status" "a StopFailure with a broken watcher start must deliver the failure notice"
+  assert_contains "$out" "automatic supervision mechanism is broken" "the StopFailure failure notice must describe the broken mechanism"
+  [ -e "$marker" ] || fail "the StopFailure failure notice must start the continuation cooldown"
+
+  fm_touch_epoch $(( $(date +%s) - 1 )) "$marker"
+  t0=$(date +%s)
+  out=$(FM_CLAUDE_STOPFAILURE_REWAKE_COOLDOWN=6 run_autoarm "$dir" "$fail_payload" 2>/dev/null); status=$?
+  elapsed=$(( $(date +%s) - t0 ))
+  expect_code 2 "$status" "a suppressed StopFailure failure retry must still keep the retry alive"
+  assert_contains "$out" "suppressed continuation" "the paced failure retry must carry its one-line reason: $out"
+  [ "$elapsed" -ge 3 ] || fail "a StopFailure failure retry inside a 6s cooldown set 1s ago must wait it out, took ${elapsed}s"
+  [ "$(epoch_outcome "$dir")" = failed-suppressed ] || fail "the paced failure retry must record failed-suppressed, got: $(epoch_outcome "$dir")"
+  [ "$(stat -c %Y "$marker" 2>/dev/null || stat -f %m "$marker")" -ge $(( t0 + 3 )) ] || fail "the paced failure retry must restart the cooldown at its commit"
+
+  pass "auto-arm: StopFailure failure continuations are paced by the same cooldown"
+}
+
+# A StopFailure continuation that waits out the cooldown must re-honor the
+# gates it passed before the arm: AFK hands supervision to the away daemon and
+# a vanished need leaves nothing to supervise, so either one appearing during
+# the wait ends the firing silently instead of waking the primary late.
+test_stopfailure_paced_rewake_honors_afk_and_need_after_wait() {
+  local dir case_name status fail_payload rcfile hook_pid
+  fail_payload='{"session_id":"sess-autoarm","hook_event_name":"StopFailure","error":"connection_failed","transcript_path":"/tmp/sess.jsonl"}'
+  for case_name in afk need; do
+    dir=$(make_primary_dir "$TMP_ROOT/stopfailure-wait-$case_name")
+    : > "$dir/state/task.meta"
+    write_arm_fixture "$dir" actionable
+    : > "$dir/state/.claude-autoarm-stopfailure-rewake"
+    rcfile="$dir/hook-rc"
+    ( FM_CLAUDE_STOPFAILURE_REWAKE_COOLDOWN=5 run_autoarm "$dir" "$fail_payload" >/dev/null 2>&1; echo "$?" > "$rcfile" ) &
+    hook_pid=$!
+    for _ in $(seq 1 100); do
+      [ -e "$dir/state/successor-ran" ] && break
+      sleep 0.05
+    done
+    [ -e "$dir/state/successor-ran" ] || fail "$case_name: the paced StopFailure never reached its handling successor"
+    sleep 0.5
+    [ ! -e "$rcfile" ] || fail "$case_name: the StopFailure inside the cooldown finished before waiting it out"
+    if [ "$case_name" = afk ]; then
+      : > "$dir/state/.afk"
+    else
+      rm -f "$dir/state/task.meta"
+    fi
+    wait "$hook_pid"
+    status=$(cat "$rcfile")
+    expect_code 0 "$status" "$case_name appearing during the StopFailure cooldown wait must end the firing silently"
+    if [ "$case_name" = afk ]; then
+      [ "$(epoch_outcome "$dir")" = afk ] || fail "AFK during the wait must record outcome=afk, got: $(epoch_outcome "$dir")"
+    else
+      [ "$(epoch_outcome "$dir")" = clean ] || fail "a vanished need during the wait must record outcome=clean, got: $(epoch_outcome "$dir")"
+    fi
+  done
+  pass "auto-arm: a paced StopFailure rewake stands down when AFK or a lost need appears during its wait"
+}
+
 # An arm that attached to a peer cycle returns when that cycle ends with the wake
 # the peer delivered. Pi, omp, and OpenCode start the next arm before notifying
 # the model; the hook must do the same, naming the closed arm as the successor's
@@ -743,20 +883,36 @@ test_post_alarm_uncommitted_actionable_close_stays_suppressed() {
 # events must each deliver one rewake, run one arm, keep one watcher live at a
 # time with an advancing beacon, and end the stale episode on the first event.
 test_stale_alarm_cannot_freeze_the_stop_owned_chain() {
-  local dir out status i arms beats age
+  local dir out status i arms beats age successor
   dir=$(make_primary_dir "$TMP_ROOT/chain-freeze")
   : > "$dir/state/task.meta"
   : > "$dir/state/.claude-autoarm-failure-notified"
   : > "$dir/state/.claude-autoarm-failure-alarmed"
   write_arm_fixture "$dir" singleton-actionable
+  : > "$dir/state/check-watcher-overlap"
   for i in 1 2 3 4 5 6 7 8 9 10; do
     # Backdate the beacon before every event, so only a cycle that genuinely
     # ran its watcher can leave a fresh one behind.
     touch -t 202001010000 "$dir/state/.last-watcher-beat"
+    : > "$dir/state/successor-park"
     out=$(run_autoarm "$dir" 2>/dev/null); status=$?
     [ "$status" -eq 2 ] || fail "Stop event $i did not continue the chain (exit $status): $out"
     assert_contains "$out" "signal: task.status done: fixture wake" "Stop event $i lost its wake line: $out"
     [ "$(epoch_outcome "$dir")" = rewake ] || fail "Stop event $i recorded $(epoch_outcome "$dir") instead of rewake"
+    [ "$(wc -l < "$dir/state/successor-ran" | tr -d ' ')" -eq "$i" ] \
+      || fail "Stop event $i did not start exactly one handling successor"
+    successor=$(sed -n 's/^arm=\([0-9]*\) .*$/\1/p' "$dir/state/successor-ran" | tail -n 1)
+    kill -0 "$successor" 2>/dev/null || fail "Stop event $i left no live handling successor"
+    assert_present "$dir/state/watcher-live" "the live successor did not hold the shared watcher slot"
+    assert_absent "$dir/state/watcher-overlap" "Stop event $i overlapped watcher arms"
+    # End this handling turn explicitly, then await the successor's EXIT trap
+    # before the next Stop; no timing assumption substitutes for completion.
+    rm -f "$dir/state/successor-park"
+    for _ in $(seq 1 200); do
+      [ -e "$dir/state/watcher-exited-$successor" ] && break
+      sleep 0.05
+    done
+    assert_present "$dir/state/watcher-exited-$successor" "the handling successor did not finish"
     age=$(beacon_age "$dir")
     [ "$age" -lt 300 ] || fail "Stop event $i left a stale beacon (${age}s), so its cycle skipped the watcher"
     if [ "$i" -eq 1 ]; then
@@ -1122,7 +1278,7 @@ test_signal_session_identity_proof() {
     for signal in HUP TERM INT; do
       dir=$(make_primary_dir "$TMP_ROOT/signal-$mode-$signal")
       : > "$dir/state/task.meta"
-      write_arm_fixture "$dir" blocking-actionable
+      write_arm_fixture "$dir" signal-blocking
       out="$dir/state/interrupted.out"
       run_autoarm_bg "$dir" "$out" sess-signal
       hook_pid=
@@ -1692,9 +1848,14 @@ test_resumed_same_id_session_supersedes_the_orphan() {
   FM_HOME="$dir" "$FAKE_CLAUDE" -c '
       export CLAUDE_PID=$$
       printf "%s\n" "$$" > "$FM_HOME/state/.lock"
-      printf "%s\n" "{\"session_id\":\"sess-resumed\",\"stop_hook_active\":false}" \
-        | "$FM_HOME/bin/fm-claude-stop-autoarm.sh" > "$FM_HOME/state/orphan-out" 2>&1 &
-      printf "%s\n" "$!" > "$FM_HOME/state/orphan-hook-pid"
+      (
+        printf "%s\n" "{\"session_id\":\"sess-resumed\",\"stop_hook_active\":false}" \
+          | "$FM_HOME/bin/fm-claude-stop-autoarm.sh" > "$FM_HOME/state/orphan-out" 2>&1 &
+        hook_pid=$!
+        printf "%s\n" "$hook_pid" > "$FM_HOME/state/orphan-hook-pid"
+        wait "$hook_pid"
+        printf "%s\n" "$?" > "$FM_HOME/state/orphan-exit"
+      ) &
       for _ in $(seq 1 250); do [ -e "$FM_HOME/state/arm-ran" ] && break; sleep 0.02; done
     '
   orphan_pid=$(cat "$dir/state/orphan-hook-pid")
@@ -1735,7 +1896,11 @@ test_resumed_same_id_session_supersedes_the_orphan() {
   [ "$(epoch_field "$dir" owner_pid)" != "$orphan_pid" ] || fail "the orphaned hook still owns the ledger"
   [ "$(epoch_field "$dir" session_pid)" = "$lock_pid" ] || fail "the rewake must bind the resumed session's lock pid"
   [ "$lock_pid" != "$dead_lock_pid" ] || fail "fm-lock.sh recovery left the dead session's pid on lock line 1: $lock_pid"
-  ! grep -q 'firstmate watcher wake' "$orphan_out" || fail "the superseded orphan still delivered a banner: $(cat "$orphan_out")"
+  # Claude delivers collected stderr only on exit 2. A losing generation may
+  # compose its banner before the terminal commit refuses it, then exit 0.
+  for i in $(seq 1 250); do [ -e "$dir/state/orphan-exit" ] && break; sleep 0.02; done
+  assert_present "$dir/state/orphan-exit" "the orphan exit status was not captured"
+  expect_code 0 "$(cat "$dir/state/orphan-exit")" "the superseded orphan must not deliver a notification: $(cat "$orphan_out")"
   pass "auto-arm: a resumed session with the dead session's id still supersedes its orphaned claim"
 }
 
@@ -2314,26 +2479,16 @@ test_fm_lock_status_still_works_with_shared_lib() {
   pass "fm-lock: shared session-lock lib preserves the status path"
 }
 
-if [ "${BASELINE:-0}" = 1 ]; then
-  eval "$(declare -f install_autoarm_scripts | sed '1s/install_autoarm_scripts/install_current_scripts/')"
-  install_autoarm_scripts() {
-    install_current_scripts "$1"
-    cp "$(dirname "${BASH_SOURCE[0]}")/base-autoarm.sh" "$1/bin/fm-claude-stop-autoarm.sh"
-  }
-fi
-original_run_autoarm=$(declare -f run_autoarm)
-eval "${original_run_autoarm/run_autoarm/run_autoarm_original}"
-run_autoarm() {
-  local result code
-  result=$(run_autoarm_original "$@" 2>/dev/null); code=$?
-  printf '\nHook exit=%s; ledger=%s\n%s\n' "$code" "$(epoch_outcome "$1")" "$result" >&3
-  printf 'episode markers remaining: ' >&3
-  find "$1/state" -maxdepth 1 \( -name '.claude-autoarm-failure-*' -o -name '.turnend-claude-blocks' \) -printf '%f ' >&3
-  printf '\n' >&3
-  printf '%s\n' "$result"
-  return "$code"
-}
-exec 3>&1
-test_post_alarm_actionable_close_delivers_and_ends_the_episode
-test_post_alarm_uncommitted_actionable_close_stays_suppressed
-test_stale_alarm_cannot_freeze_the_stop_owned_chain
+dir=$(make_primary_dir "$TMP_ROOT/delivery-evidence")
+: > "$dir/state/task.meta"
+: > "$dir/state/.claude-autoarm-failure-notified"
+: > "$dir/state/.claude-autoarm-failure-alarmed"
+write_arm_fixture "$dir" actionable
+printf 'Initial state: stale failure notice and attended alarm present\n'
+for cycle in 1 2 3; do
+  out=$(run_autoarm "$dir" 2>/dev/null); status=$?
+  printf '\nStop event %s: hook exit=%s\n%s\n' "$cycle" "$status" "$out"
+  printf 'Persisted outcome=%s; failure notice=%s; attended alarm=%s\n' "$(epoch_outcome "$dir")" "$([ -e "$dir/state/.claude-autoarm-failure-notified" ] && echo present || echo absent)" "$([ -e "$dir/state/.claude-autoarm-failure-alarmed" ] && echo present || echo absent)"
+  expect_code 2 "$status" 'actionable Stop must deliver'
+  assert_absent "$dir/state/.claude-autoarm-failure-alarmed" 'stale episode must clear'
+done

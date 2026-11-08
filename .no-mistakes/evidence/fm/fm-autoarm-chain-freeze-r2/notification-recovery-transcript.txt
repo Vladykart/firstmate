@@ -1,0 +1,20 @@
+
+=== target: Stop hook with stale alarm and actionable watcher close ===
+Stop event 1; hook exit=2
+firstmate watcher wake - one supervision event needs a handling turn now.
+stale: fixture-win actionable
+Run bin/fm-wake-drain.sh first, handle the wake, then run its exact WAKE_ACK_REQUIRED --ack-through command. Until that post-handling acknowledgement, interruption leaves the wake durable for idempotent re-handling. This Stop hook owns watcher continuity: when the handling turn ends, the next needed cycle arms automatically - do NOT run bin/fm-watch-arm.sh after an ordinary wake.
+persisted outcome=rewake; stale alarm remains=no
+Stop event 2; hook exit=2
+firstmate watcher wake - one supervision event needs a handling turn now.
+stale: fixture-win actionable
+Run bin/fm-wake-drain.sh first, handle the wake, then run its exact WAKE_ACK_REQUIRED --ack-through command. Until that post-handling acknowledgement, interruption leaves the wake durable for idempotent re-handling. This Stop hook owns watcher continuity: when the handling turn ends, the next needed cycle arms automatically - do NOT run bin/fm-watch-arm.sh after an ordinary wake.
+persisted outcome=rewake; stale alarm remains=no
+
+=== base: Stop hook with stale alarm and actionable watcher close ===
+Stop event 1; hook exit=0
+firstmate watcher auto-arm suppressed - the attended failure alarm is already committed for this episode, so this suppressed continuation emits no further rewake.
+persisted outcome=failed-suppressed; stale alarm remains=yes
+Stop event 2; hook exit=0
+firstmate watcher auto-arm suppressed - the attended failure alarm is already committed for this episode, so this suppressed continuation emits no further rewake.
+persisted outcome=failed-suppressed; stale alarm remains=yes
