@@ -1,0 +1,2 @@
+ok - session-lock: a live tagged lock holder is a live foreign owner to a second Windows session
+not ok - background-session fixture never produced the front-end's lock result

@@ -1,0 +1,24 @@
+SETUP live synthetic owner= 2050863 lock= 2050863
+second-session acquisition rc=0 stdout='lock_rc=1\n' stderr='error: another live firstmate session holds the lock (pid 2050863); operate read-only until resolved\n'
+nonowner autoarm rc=0 stdout='autoarm_rc=0\n' stderr=''
+nonowner stop 1 rc=0 stdout='{"systemMessage":"FIRSTMATE SUPERVISION IS OWNED BY ANOTHER LIVE SESSION: this read-only session cannot and should not arm or repair the watcher (lock owner pid 2050863). Allowing this turn to end safely; the owning session must restore supervision."}\n' stderr=''
+nonowner stop 2 rc=0 stdout='{"systemMessage":"FIRSTMATE SUPERVISION IS OWNED BY ANOTHER LIVE SESSION: this read-only session cannot and should not arm or repair the watcher (lock owner pid 2050863). Allowing this turn to end safely; the owning session must restore supervision."}\n' stderr=''
+nonowner stop 3 rc=0 stdout='{"systemMessage":"FIRSTMATE SUPERVISION IS OWNED BY ANOTHER LIVE SESSION: this read-only session cannot and should not arm or repair the watcher (lock owner pid 2050863). Allowing this turn to end safely; the owning session must restore supervision."}\n' stderr=''
+nonowner stop 4 rc=0 stdout='{"systemMessage":"FIRSTMATE SUPERVISION IS OWNED BY ANOTHER LIVE SESSION: this read-only session cannot and should not arm or repair the watcher (lock owner pid 2050863). Allowing this turn to end safely; the owning session must restore supervision."}\n' stderr=''
+nonowner stop 5 rc=0 stdout='{"systemMessage":"FIRSTMATE SUPERVISION IS OWNED BY ANOTHER LIVE SESSION: this read-only session cannot and should not arm or repair the watcher (lock owner pid 2050863). Allowing this turn to end safely; the owning session must restore supervision."}\n' stderr=''
+FIXED repeated non-owner Stops: all five ended safely
+fresh-beat-only counterfactual rc=0 stdout='{"systemMessage":"FIRSTMATE SUPERVISION IS OWNED BY ANOTHER LIVE SESSION: this read-only session cannot and should not arm or repair the watcher (lock owner pid 2050863). Allowing this turn to end safely; the owning session must restore supervision."}\n' stderr=''
+DIAGNOSTIC owner-idle.txt lock acquired: harness pid 2050863
+
+DIAGNOSTIC replacement.txt firstmate watcher auto-arm FAILED - the Stop-owned automatic supervision mechanism is broken after 2 bounded attempts, and no live watcher with a fresh beacon was verified.
+watcher: FAILED - refusing to arm from a disposable validation checkout: /tmp/fm-turnend-foreign-owner-5k6r5x2y/nonowner/bin
+The supervision host (docs/supervision-host.md) ran these cycles; its last one exited 0 without a wake.
+Do not launch a manual background arm from this notice; investigate the automatic Stop hook and watcher startup before ending blind.
+replacement_rc=2
+
+Traceback (most recent call last):
+  File "/root/.no-mistakes/evidence/01M6W8RRPBXTVSM0F2FNBR5B6J/foreign-owner-diagnostic.py", line 202, in <module>
+    until(
+  File "/root/.no-mistakes/evidence/01M6W8RRPBXTVSM0F2FNBR5B6J/foreign-owner-diagnostic.py", line 97, in until
+    raise RuntimeError(message() if callable(message) else message)
+RuntimeError: replacement owner did not publish state/.watch.lock/pid

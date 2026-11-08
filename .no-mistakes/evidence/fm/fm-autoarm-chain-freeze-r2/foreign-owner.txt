@@ -1,0 +1,10 @@
+Non-owner Stop 1: exit=0
+{"systemMessage":"FIRSTMATE SUPERVISION IS OWNED BY ANOTHER LIVE SESSION: this read-only session cannot and should not arm or repair the watcher (lock owner pid 2331256). Allowing this turn to end safely; the owning session must restore supervision."}
+Non-owner Stop 2: exit=0
+{"systemMessage":"FIRSTMATE SUPERVISION IS OWNED BY ANOTHER LIVE SESSION: this read-only session cannot and should not arm or repair the watcher (lock owner pid 2331256). Allowing this turn to end safely; the owning session must restore supervision."}
+Non-owner Stop 3: exit=0
+{"systemMessage":"FIRSTMATE SUPERVISION IS OWNED BY ANOTHER LIVE SESSION: this read-only session cannot and should not arm or repair the watcher (lock owner pid 2331256). Allowing this turn to end safely; the owning session must restore supervision."}
+Non-owner Stop 4: exit=0
+{"systemMessage":"FIRSTMATE SUPERVISION IS OWNED BY ANOTHER LIVE SESSION: this read-only session cannot and should not arm or repair the watcher (lock owner pid 2331256). Allowing this turn to end safely; the owning session must restore supervision."}
+Non-owner Stop 5: exit=0
+{"systemMessage":"FIRSTMATE SUPERVISION IS OWNED BY ANOTHER LIVE SESSION: this read-only session cannot and should not arm or repair the watcher (lock owner pid 2331256). Allowing this turn to end safely; the owning session must restore supervision."}

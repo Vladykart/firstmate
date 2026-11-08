@@ -1,0 +1,3 @@
+ok - fm-turnend-guard --claude: repeated failed-to-arming races make bounded monotonic progress
+ok - fm-turnend-guard --claude: integrated fresh failures reach one bounded fail-open, stop continuation, and reset on recovery
+ok - fm-turnend-guard --claude: an inert auto-arm's frozen epoch reaches one bounded fail-open and resets on recovery

@@ -1,0 +1,5 @@
+
+Hook exit=0; ledger=failed-suppressed
+firstmate watcher auto-arm suppressed - the attended failure alarm is already committed for this episode, so this suppressed continuation emits no further rewake.
+episode markers remaining: .turnend-claude-blocks .claude-autoarm-failure-alarmed .claude-autoarm-failure-notified 
+not ok - an actionable result after the attended fail-open must still reach the model: expected exit 2, got 0
